@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meteora LP Journal v2 (Auto-Carryover)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .glass-panel { 
+            background: rgba(30, 41, 59, 0.7); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+        }
+        .input-std {
+            background: #1e293b; border: 1px solid #334155; color: white;
+            padding: 8px 12px; border-radius: 8px; width: 100%; font-size: 0.9rem;
+        }
+        .input-std:focus { outline: none; border-color: #3b82f6; }
+        
+        /* Highlight animasi saat auto-fill */
+        @keyframes highlight {
+            0% { border-color: #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.5); }
+            100% { border-color: #334155; box-shadow: none; }
+        }
+        .auto-filled { animation: highlight 1.5s ease-out; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 max-w-4xl mx-auto">
+
+    <!-- 1. DASHBOARD SUMMARY -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+            <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                <i class="fas fa-wallet text-6xl"></i>
+            </div>
+            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Net Profit (IDR)</p>
+            <h2 id="dashTotalIdr" class="text-2xl md:text-3xl font-bold text-white mt-1">Rp 0</h2>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+            <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                <i class="fas fa-coins text-6xl"></i>
+            </div>
+            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Akumulasi SOL</p>
+            <h2 id="dashTotalSol" class="text-2xl md:text-3xl font-bold text-cyan-400 mt-1">0.00 SOL</h2>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group">
+            <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
+                <i class="fas fa-chart-line text-6xl"></i>
+            </div>
+            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Win Rate</p>
+            <div class="flex items-end gap-2 mt-1">
+                <h2 id="dashWinRate" class="text-3xl font-bold text-green-400">0%</h2>
+                <span id="dashDays" class="text-sm text-slate-400 mb-1">...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. INPUT FORM -->
+    <div class="glass-panel p-6 rounded-2xl mb-8 border-t-4 border-t-blue-500 shadow-lg relative">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-edit mr-2 text-blue-400"></i>Catat Sesi Baru</h3>
+            
+            <div class="flex items-center gap-2 text-xs bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span class="text-slate-400">SOL: </span>
+                <span id="livePriceDisplay" class="font-mono font-bold text-yellow-400">$...</span>
+                <button onclick="fetchPrice()" class="text-blue-400 hover:text-white ml-2"><i class="fas fa-sync"></i></button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Tanggal -->
+            <div class="col-span-2 md:col-span-1">
+                <label class="text-[10px] uppercase text-slate-400 font-bold">Tanggal</label>
+                <input type="date" id="inpDate" class="input-std text-slate-300">
+            </div>
+            
+            <!-- Harga SOL -->
+            <div class="col-span-2 md:col-span-1">
+                <label class="text-[10px] uppercase text-slate-400 font-bold">Harga SOL (USD)</label>
+                <input type="number" id="inpPrice" class="input-std font-mono text-yellow-500" placeholder="Auto...">
+            </div>
+
+            <!-- Saldo Awal (FITUR UTAMA) -->
+            <div>
+                <label class="text-[10px] uppercase text-slate-400 font-bold flex justify-between">
+                    Saldo Awal (SOL)
+                    <span id="autoFillLabel" class="text-green-500 hidden italic lowercase font-normal text-[9px] animate-pulse">auto-filled</span>
+                </label>
+                <input type="number" id="inpStart" step="0.000000001" class="input-std border-slate-600" placeholder="0.00">
+            </div>
+
+            <!-- Saldo Akhir -->
+            <div>
+                <label class="text-[10px] uppercase text-slate-400 font-bold">Saldo Akhir (SOL)</label>
+                <input type="number" id="inpEnd" step="0.000000001" class="input-std" placeholder="0.00">
+            </div>
+        </div>
+
+        <!-- Tombol Aksi -->
+        <div class="mt-4 flex gap-3">
+            <button onclick="addEntry()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-semibold transition w-full md:w-auto flex items-center justify-center gap-2 shadow-lg shadow-blue-900/50">
+                <i class="fas fa-save"></i> Simpan & Lanjut
+            </button>
+            <button onclick="clearForm(true)" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition text-xs">
+                Reset Semua
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. HISTORY LIST -->
+    <div class="glass-panel rounded-2xl overflow-hidden min-h-[300px]">
+        <div class="p-4 bg-slate-800/50 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="font-bold text-slate-200">Riwayat Performa</h3>
+            <div class="flex gap-2">
+                <button onclick="exportData()" class="text-xs text-slate-400 hover:text-white border border-slate-600 px-2 py-1 rounded">
+                    <i class="fas fa-download mr-1"></i> Backup
+                </button>
+                <input type="file" id="fileImport" class="hidden" onchange="importData(this)">
+                <button onclick="document.getElementById('fileImport').click()" class="text-xs text-slate-400 hover:text-white border border-slate-600 px-2 py-1 rounded">
+                    <i class="fas fa-upload mr-1"></i> Restore
+                </button>
+                <button onclick="resetAllData()" class="text-xs text-red-500 hover:text-red-400 border border-red-900 px-2 py-1 rounded ml-2">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs text-slate-400 uppercase bg-slate-800">
+                    <tr>
+                        <th class="px-4 py-3">Tanggal</th>
+                        <th class="px-4 py-3 text-center">Modal</th>
+                        <th class="px-4 py-3 text-center">Akhir</th>
+                        <th class="px-4 py-3 text-right">Profit (SOL)</th>
+                        <th class="px-4 py-3 text-right">Profit (IDR)</th>
+                        <th class="px-4 py-3 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody" class="divide-y divide-slate-700"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const RATE_IDR = 16300; 
+        let entries = JSON.parse(localStorage.getItem('meteora_journal_data')) || [];
+
+        // --- 1. HARGA LIVE ---
+        async function fetchPrice() {
+            const display = document.getElementById('livePriceDisplay');
+            const input = document.getElementById('inpPrice');
+            display.innerText = "...";
+            try {
+                const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT");
+                const data = await res.json();
+                const price = parseFloat(data.price).toFixed(2);
+                display.innerText = `$${price}`;
+                if(!input.value) input.value = price;
+            } catch (e) { display.innerText = "Error"; }
+        }
+
+        // --- 2. CORE LOGIC (Modified for Auto-Carryover) ---
+        function addEntry() {
+            const date = document.getElementById('inpDate').value;
+            const price = parseFloat(document.getElementById('inpPrice').value);
+            const start = parseFloat(document.getElementById('inpStart').value);
+            const end = parseFloat(document.getElementById('inpEnd').value); // Ini akan jadi saldo awal sesi berikutnya
+
+            if(!date || isNaN(price) || isNaN(start) || isNaN(end)) {
+                alert("Lengkapi semua data!");
+                return;
+            }
+
+            const diffSol = end - start;
+            const diffIdr = diffSol * price * RATE_IDR;
+
+            const newEntry = {
+                id: Date.now(), date, price, start, end, diffSol, diffIdr
+            };
+
+            entries.unshift(newEntry);
+            saveToLocal();
+            renderTable();
+            renderDashboard();
+
+            // --- FITUR AUTO CARRYOVER ---
+            prepareNextSession(end); 
+        }
+
+        function prepareNextSession(lastEndBalance) {
+            // 1. Kosongkan Saldo Akhir (karena sesi baru belum selesai)
+            document.getElementById('inpEnd').value = "";
+            
+            // 2. Isi Saldo Awal dengan Saldo Akhir barusan
+            const startInp = document.getElementById('inpStart');
+            startInp.value = lastEndBalance;
+            
+            // 3. Beri efek visual agar user sadar
+            startInp.classList.remove("auto-filled"); // Reset animasi
+            void startInp.offsetWidth; // Trigger reflow
+            startInp.classList.add("auto-filled");
+            
+            // 4. Tampilkan label kecil
+            document.getElementById('autoFillLabel').classList.remove('hidden');
+        }
+
+        // Fungsi Load Awal: Cek history terakhir untuk isi Saldo Awal
+        function checkLastBalance() {
+            if (entries.length > 0) {
+                // Entries[0] adalah data terbaru
+                const lastEntry = entries[0];
+                const startInp = document.getElementById('inpStart');
+                
+                // Isi otomatis
+                startInp.value = lastEntry.end;
+                document.getElementById('autoFillLabel').classList.remove('hidden');
+            }
+        }
+
+        // --- 3. CRUD LAINNYA ---
+        function deleteEntry(id) {
+            if(confirm("Hapus data ini?")) {
+                entries = entries.filter(e => e.id !== id);
+                saveToLocal();
+                renderTable();
+                renderDashboard();
+                // Jika data habis, reset form
+                if(entries.length === 0) clearForm(true);
+            }
+        }
+
+        function saveToLocal() {
+            localStorage.setItem('meteora_journal_data', JSON.stringify(entries));
+        }
+
+        function clearForm(resetAll = false) {
+            document.getElementById('inpEnd').value = "";
+            if(resetAll) {
+                document.getElementById('inpStart').value = "";
+                document.getElementById('autoFillLabel').classList.add('hidden');
+            }
+        }
+
+        // --- 4. RENDER UI ---
+        function renderTable() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = "";
+
+            if (entries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500 italic">Belum ada data.</td></tr>`;
+                return;
+            }
+
+            entries.forEach(item => {
+                const isProfit = item.diffSol >= 0;
+                const colorClass = isProfit ? "text-green-400" : "text-red-400";
+                const sign = isProfit ? "+" : "";
+                const dateStr = new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+
+                const row = `
+                    <tr class="hover:bg-slate-700/30 transition border-b border-slate-700/50">
+                        <td class="px-4 py-3 text-slate-300 font-medium">${dateStr}</td>
+                        <td class="px-4 py-3 text-center text-slate-400 font-mono text-xs">${item.start}</td>
+                        <td class="px-4 py-3 text-center text-slate-400 font-mono text-xs">${item.end}</td>
+                        <td class="px-4 py-3 text-right font-bold ${colorClass}">${sign}${item.diffSol.toFixed(4)}</td>
+                        <td class="px-4 py-3 text-right font-bold ${colorClass}">${sign}${Math.round(item.diffIdr).toLocaleString('id-ID')}</td>
+                        <td class="px-4 py-3 text-center">
+                            <button onclick="deleteEntry(${item.id})" class="text-slate-600 hover:text-red-400"><i class="fas fa-times"></i></button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function renderDashboard() {
+            let totalIdr = 0; let totalSol = 0; let wins = 0;
+            entries.forEach(e => {
+                totalIdr += e.diffIdr;
+                totalSol += e.diffSol;
+                if(e.diffSol >= 0) wins++;
+            });
+
+            document.getElementById('dashTotalIdr').innerText = `Rp ${Math.round(totalIdr).toLocaleString('id-ID')}`;
+            const idrEl = document.getElementById('dashTotalIdr');
+            idrEl.className = totalIdr >= 0 ? "text-2xl md:text-3xl font-bold text-green-400 mt-1" : "text-2xl md:text-3xl font-bold text-red-500 mt-1";
+            
+            document.getElementById('dashTotalSol').innerText = `${totalSol.toFixed(4)} SOL`;
+            const winRate = entries.length > 0 ? Math.round((wins / entries.length) * 100) : 0;
+            document.getElementById('dashWinRate').innerText = `${winRate}%`;
+            document.getElementById('dashDays').innerText = `dari ${entries.length} Sesi`;
+        }
+
+        // Backup Restore Logic
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(entries));
+            const node = document.createElement('a');
+            node.setAttribute("href", dataStr);
+            node.setAttribute("download", "meteora_backup.json");
+            document.body.appendChild(node); node.click(); node.remove();
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    entries = JSON.parse(e.target.result);
+                    saveToLocal(); renderTable(); renderDashboard(); checkLastBalance();
+                } catch(err) { alert("File rusak!"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetAllData() {
+            if(confirm("Hapus SEMUA data?")) {
+                localStorage.removeItem('meteora_journal_data');
+                entries = [];
+                renderTable(); renderDashboard(); clearForm(true);
+            }
+        }
+
+        // INIT
+        window.onload = function() {
+            document.getElementById('inpDate').valueAsDate = new Date();
+            fetchPrice();
+            renderTable();
+            renderDashboard();
+            checkLastBalance(); // Load saldo terakhir ke input Saldo Awal
+        };
+    </script>
+</body>
+</html>
+
